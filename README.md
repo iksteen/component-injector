@@ -54,9 +54,9 @@ consumer_of_o(O())  # 'o' will be this new instance.
 ```
 
 _For more examples and usage, please refer to
-[demo.py](https://github.com/iksteen/component_injector/blob/master/demo.py)
+[demo.py](https://github.com/iksteen/component-injector/blob/master/demo.py)
 and
-[async_demo.py](https://github.com/iksteen/component_injector/blob/master/async_demo.py)._
+[async_demo.py](https://github.com/iksteen/component-injector/blob/master/async_demo.py)._
 
 ## Development setup
 
@@ -73,6 +73,9 @@ poetry run pre-commit install
 ```
 
 ## Release History
+
+* 1.0.1
+    * Fix links to examples.
 
 * 1.0.0
     * Initial Release.
