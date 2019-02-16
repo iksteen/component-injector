@@ -11,23 +11,24 @@ TypeMap = Dict[Type[T], T]
 UNSET = object()
 
 
+class Context:
+    def __init__(self, injector: "Injector") -> None:
+        self.injector = injector
+        self._registry = injector._registry
+
+    def __enter__(self) -> None:
+        self.token = self._registry.set(self._registry.get().copy())
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[Exception],
+        traceback: Optional[TracebackType],
+    ) -> None:
+        self._registry.reset(self.token)
+
+
 class Injector:
-    class Context:
-        def __init__(self, injector: "Injector") -> None:
-            self.injector = injector
-            self.registry = injector._registry
-
-        def __enter__(self) -> None:
-            self.token = self.registry.set(self.registry.get().copy())
-
-        def __exit__(
-            self,
-            exc_type: Optional[Type[BaseException]],
-            exc_val: Optional[Exception],
-            traceback: Optional[TracebackType],
-        ) -> None:
-            self.registry.reset(self.token)
-
     _registry: contextvars.ContextVar
 
     def __init__(self) -> None:
@@ -52,8 +53,8 @@ class Injector:
         registry: TypeMap = self._registry.get()
         return cast(T, registry[type_])
 
-    def scope(self) -> "Injector.Context":
-        return self.Context(self)
+    def scope(self) -> Context:
+        return Context(self)
 
     def inject(self, f: Callable[..., T]) -> Callable[..., T]:
         sig = inspect.signature(f)
