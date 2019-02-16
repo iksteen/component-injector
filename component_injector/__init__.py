@@ -3,7 +3,21 @@ import functools
 import inspect
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Any, Callable, Dict, Optional, Type, TypeVar, cast, Set, Union, List
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Optional,
+    Type,
+    TypeVar,
+    cast,
+    Set,
+    Union,
+    List,
+    Iterable,
+    Awaitable,
+    Tuple,
+)
 
 __all__ = ["Injector"]
 
@@ -167,19 +181,47 @@ class Injector:
         component_scope = self._get_component_scope(factory)
         component_scope.update({type_: component for type_ in factory.resolved_types})
 
-    def get_component(self, type_: Type[T]) -> T:
+    def _build_component(
+        self, type_: Type[T]
+    ) -> Tuple[Optional[Factory], Union[T, Awaitable[T]]]:
         components: ComponentStack = self._components.get()
         if type_ in components:
-            return components[type_]
+            return None, components[type_]
 
         factories: FactoryMap = self._factories.get()
         factory = factories[type_]
+
         factory_function = factory.factory
         assert factory_function is not None
-        component = cast(T, factory_function())
+        return factory, factory_function()
 
-        component_scope = self._get_component_scope(factory)
-        component_scope.update({type_: component for type_ in factory.resolved_types})
+    def get_component(self, type_: Type[T]) -> T:
+        factory, component = self._build_component(type_)
+
+        if inspect.isawaitable(component):
+            raise RuntimeError("Using an awaitable factory in synchronous code.")
+
+        if factory is not None:
+            component_scope = self._get_component_scope(factory)
+            component_scope.update(
+                {type_: component for type_ in factory.resolved_types}
+            )
+
+        return cast(T, component)
+
+    async def get_component_async(self, type_: Type[T]) -> T:
+        factory, component_or_awaitable = self._build_component(type_)
+
+        if inspect.isawaitable(component_or_awaitable):
+            component = await cast(Awaitable[T], component_or_awaitable)
+        else:
+            component = cast(T, component_or_awaitable)
+
+        if factory is not None:
+            component_scope = self._get_component_scope(factory)
+            component_scope.update(
+                {type_: component for type_ in factory.resolved_types}
+            )
 
         return component
 
@@ -189,10 +231,12 @@ class Injector:
     def inject(self, f: Callable[..., T]) -> Callable[..., T]:
         sig = inspect.signature(f)
 
-        @functools.wraps(f)
-        def wrapper(*args: Any, **kwargs: Any) -> T:
+        def bind_arguments(
+            args: Iterable[Any], kwargs: Dict[str, Any]
+        ) -> Tuple[inspect.BoundArguments, Dict[str, Any]]:
             factories = self._factories.get()
             bound = sig.bind_partial(*args, **kwargs)
+            components = {}
 
             for name, param in sig.parameters.items():
                 if (
@@ -202,9 +246,35 @@ class Injector:
                     continue
 
                 if param.annotation in factories:
-                    bound.arguments[name] = self.get_component(param.annotation)
+                    components[name] = param.annotation
 
+            return bound, components
+
+        @functools.wraps(f)
+        def wrapper(*args: Any, **kwargs: Any) -> T:
+            bound, bind_components = bind_arguments(args, kwargs)
+            bound.arguments.update(
+                {
+                    name: self.get_component(type_)
+                    for name, type_ in bind_components.items()
+                }
+            )
             bound.apply_defaults()
             return f(*bound.args, **bound.kwargs)
 
-        return wrapper
+        @functools.wraps(f)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> T:
+            bound, bind_components = bind_arguments(args, kwargs)
+            bound.arguments.update(
+                {
+                    name: await self.get_component_async(type_)
+                    for name, type_ in bind_components.items()
+                }
+            )
+            bound.apply_defaults()
+            return await cast(Awaitable[T], f(*bound.args, **bound.kwargs))
+
+        if inspect.iscoroutinefunction(f):
+            return async_wrapper
+        else:
+            return wrapper

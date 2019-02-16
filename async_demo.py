@@ -40,8 +40,13 @@ class AlternativeGizmo(GizmoInterface):
         return "Hello everyone!"
 
 
-def alternative_gizmo_factory() -> AlternativeGizmo:
+async def alternative_gizmo_factory() -> AlternativeGizmo:
+    """
+    Factory function that creates a knock-off gizmo. Note that while
+    they behave similar, the knock-off takes longer to produce.
+    """
     print("Creating alternative gizmo")
+    await asyncio.sleep(3)
     return AlternativeGizmo()
 
 
@@ -53,7 +58,7 @@ injector = Injector()
 # component injector, insert it into the arguments if it's
 # not explicitly provided.
 @injector.inject
-def gizmo_consumer(prefix: str, *, g: GizmoInterface) -> None:
+async def gizmo_consumer(prefix: str, *, g: GizmoInterface) -> None:
     print(f"{prefix} {g} says: {g.greeting()}")
 
 
@@ -62,7 +67,7 @@ async def gizmo_loop(prefix: str) -> None:
     This asynchronous function will call gizmo_consumer in a loop.
     """
     for i in range(5):
-        gizmo_consumer(prefix)
+        await gizmo_consumer(prefix)
         await asyncio.sleep(1)
 
 
