@@ -39,6 +39,11 @@ class AlternativeGizmo(GizmoInterface):
         return "Hello everyone!"
 
 
+def alternative_gizmo_factory() -> AlternativeGizmo:
+    print("Creating alternative gizmo")
+    return AlternativeGizmo()
+
+
 # Create an injector registry for our project.
 injector = Injector()
 
@@ -62,7 +67,7 @@ gizmo_consumer("OG")
 with injector.scope():
     # Since the alternative gizmo works well enough in this situation,
     # register it with the injector.
-    injector.register(AlternativeGizmo())
+    injector.register_factory(alternative_gizmo_factory)
 
     # This time the, the injector will inject our alternative gizmo.
     gizmo_consumer("AG")

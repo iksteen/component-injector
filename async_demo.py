@@ -40,6 +40,11 @@ class AlternativeGizmo(GizmoInterface):
         return "Hello everyone!"
 
 
+def alternative_gizmo_factory() -> AlternativeGizmo:
+    print("Creating alternative gizmo")
+    return AlternativeGizmo()
+
+
 # Create an injector registry for our project.
 injector = Injector()
 
@@ -64,10 +69,11 @@ async def gizmo_loop(prefix: str) -> None:
 async def alternative_gizmo_loop(prefix: str) -> None:
     """
     This will set up a new injector scope, register our knock-off
-    gizmo component and calls the gizmo loop function defined above.
+    gizmo component factory and calls the gizmo loop function defined
+    above.
     """
     with injector.scope():
-        injector.register(AlternativeGizmo())
+        injector.register_factory(alternative_gizmo_factory)
         await gizmo_loop(prefix)
 
 
