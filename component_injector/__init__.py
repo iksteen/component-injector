@@ -4,6 +4,8 @@ import inspect
 from types import TracebackType
 from typing import Any, Callable, Dict, Optional, Type, TypeVar, cast
 
+__all__ = ["Injector"]
+
 T = TypeVar("T")
 TypeMap = Dict[Type[T], T]
 UNSET = object()
