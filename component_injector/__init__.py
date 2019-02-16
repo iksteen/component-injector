@@ -6,17 +6,18 @@ from typing import Any, Callable, Dict, Optional, Type, TypeVar, cast
 
 __all__ = ["Injector"]
 
+
 T = TypeVar("T")
-TypeMap = Dict[Type[T], T]
+ComponentMap = Dict[Type[T], T]
 UNSET = object()
 
 
 class Context:
     def __init__(self, injector: "Injector") -> None:
-        self._registry = injector._registry
+        self._components = injector._components
 
     def __enter__(self) -> None:
-        self.token = self._registry.set(self._registry.get().copy())
+        self.components_token = self._components.set(self._components.get().copy())
 
     def __exit__(
         self,
@@ -24,33 +25,33 @@ class Context:
         exc_val: Optional[Exception],
         traceback: Optional[TracebackType],
     ) -> None:
-        self._registry.reset(self.token)
+        self._components.reset(self.components_token)
 
 
 class Injector:
-    _registry: contextvars.ContextVar
+    _components: contextvars.ContextVar
 
     def __init__(self) -> None:
-        self._registry = contextvars.ContextVar("registry", default={})
+        self._components = contextvars.ContextVar("components", default={})
 
     def register(
         self, component: Any, *, bases: bool = True, overwrite_bases: bool = True
     ) -> None:
-        registry: TypeMap = self._registry.get()
+        components: ComponentMap = self._components.get()
 
         type_ = type(component)
-        registry[type_] = component
+        components[type_] = component
 
         if bases:
             types = type_.mro()
             for type_ in types:
-                apply = overwrite_bases or type_ not in registry
+                apply = overwrite_bases or type_ not in components
                 if inspect.isclass(type_) and apply:
-                    registry[type_] = component
+                    components[type_] = component
 
     def get_component(self, type_: Type[T]) -> T:
-        registry: TypeMap = self._registry.get()
-        return cast(T, registry[type_])
+        components: ComponentMap = self._components.get()
+        return cast(T, components[type_])
 
     def scope(self) -> Context:
         return Context(self)
@@ -60,7 +61,7 @@ class Injector:
 
         @functools.wraps(f)
         def wrapper(*args: Any, **kwargs: Any) -> T:
-            registry = self._registry.get()
+            components = self._components.get()
             bound = sig.bind_partial(*args, **kwargs)
             for name, param in sig.parameters.items():
                 if (
@@ -68,7 +69,7 @@ class Injector:
                     or param.annotation is inspect.Parameter.empty
                 ):
                     continue
-                component = registry.get(param.annotation, UNSET)
+                component = components.get(param.annotation, UNSET)
                 if component is not UNSET:
                     bound.arguments[name] = component
             bound.apply_defaults()
