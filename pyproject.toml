@@ -1,0 +1,20 @@
+[tool.poetry]
+name = "component-injector"
+version = "1.0.0"
+description = "A modern component / dependency injector for python 3.6+."
+license = "MIT"
+authors = ["Ingmar Steen <iksteen@gmail.com>"]
+readme = "README.md"
+homepage = "https://www.github.com/iksteen/component-injector"
+repository = "https://www.github.com/iksteen/component-injector.git"
+
+[tool.poetry.dependencies]
+python = "^3.6"
+contextvars = {version = "^2.3",python = "<3.7"}
+
+[tool.poetry.dev-dependencies]
+pre-commit = "^1.14"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
