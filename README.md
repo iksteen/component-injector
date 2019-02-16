@@ -74,6 +74,9 @@ poetry run pre-commit install
 
 ## Release History
 
+* 1.0.2
+    * Fix bug where already bound arguments were overwritten.
+
 * 1.0.1
     * Fix links to examples.
 
