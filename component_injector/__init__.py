@@ -13,7 +13,6 @@ UNSET = object()
 
 class Context:
     def __init__(self, injector: "Injector") -> None:
-        self.injector = injector
         self._registry = injector._registry
 
     def __enter__(self) -> None:
