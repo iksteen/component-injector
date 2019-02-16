@@ -15,7 +15,7 @@ class Injector:
     class Context:
         def __init__(self, injector: "Injector") -> None:
             self.injector = injector
-            self.registry = injector.registry
+            self.registry = injector._registry
 
         def __enter__(self) -> None:
             self.token = self.registry.set(self.registry.get().copy())
@@ -28,15 +28,15 @@ class Injector:
         ) -> None:
             self.registry.reset(self.token)
 
-    registry: contextvars.ContextVar
+    _registry: contextvars.ContextVar
 
     def __init__(self) -> None:
-        self.registry = contextvars.ContextVar("registry", default={})
+        self._registry = contextvars.ContextVar("registry", default={})
 
     def register(
         self, component: Any, *, bases: bool = True, overwrite_bases: bool = True
     ) -> None:
-        registry: TypeMap = self.registry.get()
+        registry: TypeMap = self._registry.get()
 
         type_ = type(component)
         registry[type_] = component
@@ -49,7 +49,7 @@ class Injector:
                     registry[type_] = component
 
     def get_component(self, type_: Type[T]) -> T:
-        registry: TypeMap = self.registry.get()
+        registry: TypeMap = self._registry.get()
         return cast(T, registry[type_])
 
     def scope(self) -> "Injector.Context":
@@ -60,7 +60,7 @@ class Injector:
 
         @functools.wraps(f)
         def wrapper(*args: Any, **kwargs: Any) -> T:
-            registry = self.registry.get()
+            registry = self._registry.get()
             bound = sig.bind_partial(*args, **kwargs)
             for name, param in sig.parameters.items():
                 if (
