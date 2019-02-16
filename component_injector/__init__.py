@@ -62,7 +62,7 @@ class Injector:
             bound = sig.bind_partial(*args, **kwargs)
             for name, param in sig.parameters.items():
                 if (
-                    param in bound.arguments
+                    name in bound.arguments
                     or param.annotation is inspect.Parameter.empty
                 ):
                     continue
