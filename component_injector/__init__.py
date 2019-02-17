@@ -39,25 +39,16 @@ UNSET = object()
 
 
 class ComponentStack:
-    def __init__(self, layers: Optional[List[ComponentMap]] = None) -> None:
-        if layers is not None:
-            self._layers = layers
-        else:
-            self._layers = [{}]
+    __slots__ = ["_layers", "layer"]
 
-    @property
-    def layer(self) -> ComponentMap:
-        return self._layers[0]
+    def __init__(self, layers: Optional[List[ComponentMap]] = None) -> None:
+        if layers is None:
+            layers = [{}]
+        self._layers = layers
+        self.layer = layers[0]
 
     def stack(self) -> "ComponentStack":
         return ComponentStack([{}, *self._layers])
-
-    def __contains__(self, key: Type[T]) -> bool:
-        try:
-            self.__getitem__(key)
-            return True
-        except KeyError:
-            return False
 
     def __getitem__(self, key: Type[T]) -> T:
         for layer in self._layers:
@@ -69,19 +60,23 @@ class ComponentStack:
         raise KeyError(key)
 
     def __setitem__(self, key: Type[T], value: T) -> None:
-        self._layers[0][key] = value
+        self.layer[key] = value
 
     def __delitem__(self, key: Type[T]) -> None:
-        self._layers[0][key] = UNSET
+        self.layer[key] = UNSET
 
     def update(self, values: ComponentMap) -> None:
-        self._layers[0].update(values)
+        self.layer.update(values)
 
 
 class Context:
-    def __init__(self, injector: "Injector") -> None:
-        self._factories = injector._factories
-        self._components = injector._components
+    __slots__ = ["_factories", "_components", "_factories_token", "_components_token"]
+
+    def __init__(
+        self, factories: contextvars.ContextVar, components: contextvars.ContextVar
+    ) -> None:
+        self._factories = factories
+        self._components = components
 
     def __enter__(self) -> None:
         self._factories_token = self._factories.set(self._factories.get().copy())
@@ -100,6 +95,8 @@ class Context:
 class Injector:
     _factories: contextvars.ContextVar
     _components: contextvars.ContextVar
+
+    __slots__ = ["_factories", "_components"]
 
     def __init__(self) -> None:
         self._factories = contextvars.ContextVar("factories", default={})
@@ -133,7 +130,7 @@ class Injector:
                     factory.resolved_types.add(type_)
                     factories[type_] = factory
 
-                    if overwrite_bases and type_ in components:
+                    if overwrite_bases:
                         del components[type_]
 
         return factory
@@ -150,10 +147,9 @@ class Injector:
             type_ = cast(Type[Any], factory)
         else:
             type_ = inspect.signature(factory).return_annotation
-            if type_ is inspect.Signature.empty:
-                raise ValueError(
-                    "Please add a return type annotation to your factory function."
-                )
+            assert (
+                type_ is not inspect.Signature.empty
+            ), "Please add a return type annotation to your factory function."
 
         self._register_type_factory(
             type_,
@@ -185,8 +181,10 @@ class Injector:
         self, type_: Type[T]
     ) -> Tuple[Optional[Factory], Union[T, Awaitable[T]]]:
         components: ComponentStack = self._components.get()
-        if type_ in components:
+        try:
             return None, components[type_]
+        except KeyError:
+            pass
 
         factories: FactoryMap = self._factories.get()
         factory = factories[type_]
@@ -198,8 +196,9 @@ class Injector:
     def get_component(self, type_: Type[T]) -> T:
         factory, component = self._build_component(type_)
 
-        if inspect.isawaitable(component):
-            raise RuntimeError("Using an awaitable factory in synchronous code.")
+        assert not inspect.isawaitable(
+            component
+        ), "Using an awaitable factory in synchronous code."
 
         if factory is not None:
             component_scope = self._get_component_scope(factory)
@@ -226,7 +225,7 @@ class Injector:
         return component
 
     def scope(self) -> Context:
-        return Context(self)
+        return Context(self._factories, self._components)
 
     def inject(self, f: Callable[..., T]) -> Callable[..., T]:
         sig = inspect.signature(f)
