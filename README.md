@@ -74,6 +74,10 @@ poetry run pre-commit install
 
 ## Release History
 
+* Next version
+    * Support types that don't have an MRO (like the result from
+      `typing.NewType`).
+
 * 1.1.1
     * Fix incorrect type registration when not registering bases.
     * Fix typo in documentation (thanks @trbs!).
