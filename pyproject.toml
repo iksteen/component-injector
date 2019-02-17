@@ -7,6 +7,7 @@ authors = ["Ingmar Steen <iksteen@gmail.com>"]
 readme = "README.md"
 homepage = "https://www.github.com/iksteen/component-injector"
 repository = "https://www.github.com/iksteen/component-injector.git"
+documentation = "https://component-injector.readthedocs.org/"
 
 [tool.poetry.dependencies]
 python = "^3.6"
