@@ -74,7 +74,7 @@ poetry run pre-commit install
 
 ## Release History
 
-* Next version:
+* 1.1.0
     * Add documentation.
     * Add support for component factories. Asynchronous factories are
       supported as well when injecting into asynchronous functions.
