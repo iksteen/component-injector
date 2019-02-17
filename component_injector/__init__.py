@@ -118,6 +118,11 @@ class Context:
 
 
 class Injector:
+    """
+    Provides a basic injector namespace. It's common to use one
+    injector per project.
+    """
+
     __slots__ = ["_context"]
 
     def __init__(self) -> None:
@@ -162,6 +167,27 @@ class Injector:
         overwrite_bases: bool = True,
         persistent: bool = False,
     ) -> None:
+        """
+        Register a new factory function with the injector. Not that the
+        factory function's return type annotation should be set to the
+        type of the component you want to inject.
+
+        :param factory: The factory function. Will be called without
+            arguments and should return the instantiated component. If
+            the factory returns an Awaitable it can only used to inject
+            into coroutine functions.
+        :param bases: Besides registering the exact component type,
+            also register for all of the component's base classes.
+            Defaults to `True`.
+        :param overwrite_bases: If any of the component's base classes
+            are already registered with the injector, overwrite those
+            registrations. Defaults to `True`.
+        :param persistent: When materializing the component using the
+            factory, insert the component into the scope where the
+            factory is registered instead of the current scope.
+            Defaults to `False`.
+        """
+
         if inspect.isclass(factory):
             type_ = cast(Type[Any], factory)
         else:
@@ -187,6 +213,18 @@ class Injector:
     def register(
         self, component: Any, *, bases: bool = True, overwrite_bases: bool = True
     ) -> None:
+        """
+        Register a new component with the injector.
+
+        :param component: The component to register with the injector.
+        :param bases: Besides registering the exact component type,
+            also register for all of the component's base classes.
+            Defaults to `True`.
+        :param overwrite_bases: If any of the component's base classes
+            are already registered with the injector, overwrite those
+            registrations. Defaults to `True`.
+        """
+
         factory = self._register_type_factory(
             type(component), None, bases=bases, overwrite_bases=overwrite_bases
         )
@@ -197,6 +235,17 @@ class Injector:
             )
 
     def get_component(self, type_: Type[T]) -> T:
+        """
+        Get a component from the injector's current scope. Materialize
+        it using a factory if necessary.
+
+        Note that it is an error to use this function to get a
+        component that has a factory that returns an `Awaitable`.
+
+        :param type_: The type of the component to return.
+        :return: The materialized component.
+        """
+
         components = self._context.components
         try:
             return components[type_]
@@ -220,6 +269,17 @@ class Injector:
         return cast(T, component)
 
     async def get_component_async(self, type_: Type[T]) -> T:
+        """
+        Get a component from the injector's current scope. Materialize
+        it using a factory if necessary.
+
+        Use this method if the component's factory function returns an
+        `Awaitable`.
+
+        :param type_: The type of the component to return.
+        :return: The materialized component.
+        """
+
         components = self._context.components
         try:
             return components[type_]
@@ -244,9 +304,29 @@ class Injector:
         return component
 
     def scope(self) -> Context:
+        """
+        Return a context manager that you can use to enter a new scpoe.
+        When leaving the scope, any components or factories added to
+        the injector will be forgotten.
+
+        :return: The scope context object. You can use this to re-enter
+           this scope at a later time if needed.
+        """
+
         return Context(self._context)
 
     def inject(self, f: Callable[..., T]) -> Callable[..., T]:
+        """
+        This decorator will connect the injector to a function or
+        method. When the resulting function is called, the provided
+        arguments will be checked against the function's signature and
+        any missing arguments the injector has a component or factory
+        those arguments will be filled in.
+
+        :param f: The function or method to inject components into.
+        :return: The decorated function.
+        """
+
         sig = inspect.signature(f)
 
         def bind_arguments(

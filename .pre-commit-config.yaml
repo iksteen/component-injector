@@ -36,6 +36,7 @@ repos:
     - --warn-redundant-casts
     - --warn-unused-ignores
     - --warn-return-any
+    exclude: ^docs/
 
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v2.1.0

@@ -18,7 +18,7 @@ will return to the state it was in before entering the scope.
 ## Compatibility
 
 `component-injector` is compatible with python 3.6+ using the
-backported `contextvars` package.
+backported `contextvars` and `dataclasses` packages.
 
 The scopes are thread-safe and when using python 3.7 also safe for for
 use with asyncio tasks.
@@ -73,6 +73,11 @@ poetry run pre-commit install
 ```
 
 ## Release History
+
+* Next version:
+    * Add documentation.
+    * Add support for component factories. Asynchronous factories are
+      supported as well when injecting into asynchronous functions.
 
 * 1.0.2
     * Fix bug where already bound arguments were overwritten.
