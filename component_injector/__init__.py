@@ -12,7 +12,6 @@ from typing import (
     TypeVar,
     cast,
     Set,
-    Union,
     List,
     Iterable,
     Awaitable,
@@ -30,7 +29,7 @@ ComponentMap = Dict[Type[T], T]
 class Factory:
     factory: Optional[Callable[[], Any]]
     resolved_types: Set[Type]
-    scope: Optional[ComponentMap] = None
+    context: Optional["Context"] = None
 
 
 FactoryMap = Dict[Type[T], Factory]
@@ -69,18 +68,33 @@ class ComponentStack:
         self.layer.update(values)
 
 
+@dataclass
+class ContextData:
+    factories: FactoryMap
+    components: ComponentStack
+
+    def stack(self) -> "ContextData":
+        return ContextData(self.factories.copy(), self.components.stack())
+
+
 class Context:
-    __slots__ = ["_factories", "_components", "_factories_token", "_components_token"]
+    __slots__ = ["_current_context", "_data", "_tokens"]
 
-    def __init__(
-        self, factories: contextvars.ContextVar, components: contextvars.ContextVar
-    ) -> None:
-        self._factories = factories
-        self._components = components
+    _data: ContextData
+    _tokens: List[Any]
 
-    def __enter__(self) -> None:
-        self._factories_token = self._factories.set(self._factories.get().copy())
-        self._components_token = self._components.set(self._components.get().stack())
+    def __init__(self, other: Optional["Context"] = None) -> None:
+        if other is None:
+            self._current_context = contextvars.ContextVar("Context", default=self)
+            self._data = ContextData({}, ComponentStack())
+        else:
+            self._current_context = other._current_context
+            self._data = self.current._data.stack()
+        self._tokens = []
+
+    def __enter__(self) -> "Context":
+        self._tokens.append(self._current_context.set(self))
+        return self
 
     def __exit__(
         self,
@@ -88,21 +102,26 @@ class Context:
         exc_val: Optional[Exception],
         traceback: Optional[TracebackType],
     ) -> None:
-        self._components.reset(self._components_token)
-        self._factories.reset(self._factories_token)
+        self._current_context.reset(self._tokens.pop())
+
+    @property
+    def current(self) -> "Context":
+        return self._current_context.get()
+
+    @property
+    def components(self) -> ComponentStack:
+        return self.current._data.components
+
+    @property
+    def factories(self) -> FactoryMap:
+        return self.current._data.factories
 
 
 class Injector:
-    _factories: contextvars.ContextVar
-    _components: contextvars.ContextVar
-
-    __slots__ = ["_factories", "_components"]
+    __slots__ = ["_context"]
 
     def __init__(self) -> None:
-        self._factories = contextvars.ContextVar("factories", default={})
-        self._components = contextvars.ContextVar(
-            "components", default=ComponentStack()
-        )
+        self._context = Context()
 
     def _register_type_factory(
         self,
@@ -113,11 +132,11 @@ class Injector:
         overwrite_bases: bool = True,
         persistent: bool = True,
     ) -> Factory:
-        factories: FactoryMap = self._factories.get()
-        components: ComponentStack = self._components.get()
+        factories: FactoryMap = self._context.factories
+        components: ComponentStack = self._context.components
 
         if persistent:
-            factory = Factory(factory_function, {type}, components.layer)
+            factory = Factory(factory_function, {type}, self._context.current)
         else:
             factory = Factory(factory_function, {type})
         factories[type_] = factory
@@ -159,13 +178,11 @@ class Injector:
             persistent=persistent,
         )
 
-    def _get_component_scope(
-        self, factory: Factory
-    ) -> Union[ComponentMap, ComponentStack]:
-        if factory.scope is not None:
-            return factory.scope
+    def _get_factory_context(self, factory: Factory) -> Context:
+        if factory.context:
+            return factory.context
         else:
-            return cast(ComponentStack, self._components.get())
+            return self._context.current
 
     def register(
         self, component: Any, *, bases: bool = True, overwrite_bases: bool = True
@@ -174,58 +191,60 @@ class Injector:
             type(component), None, bases=bases, overwrite_bases=overwrite_bases
         )
 
-        component_scope = self._get_component_scope(factory)
-        component_scope.update({type_: component for type_ in factory.resolved_types})
+        with self._get_factory_context(factory) as context:
+            context.components.update(
+                {type_: component for type_ in factory.resolved_types}
+            )
 
-    def _build_component(
-        self, type_: Type[T]
-    ) -> Tuple[Optional[Factory], Union[T, Awaitable[T]]]:
-        components: ComponentStack = self._components.get()
+    def get_component(self, type_: Type[T]) -> T:
+        components = self._context.components
         try:
-            return None, components[type_]
+            return components[type_]
         except KeyError:
             pass
 
-        factories: FactoryMap = self._factories.get()
-        factory = factories[type_]
+        factory = self._context.factories[type_]
+        assert factory.factory is not None
 
-        factory_function = factory.factory
-        assert factory_function is not None
-        return factory, factory_function()
+        with self._get_factory_context(factory) as context:
+            component = factory.factory()
 
-    def get_component(self, type_: Type[T]) -> T:
-        factory, component = self._build_component(type_)
+            assert not inspect.isawaitable(
+                component
+            ), "Using an awaitable factory in synchronous code."
 
-        assert not inspect.isawaitable(
-            component
-        ), "Using an awaitable factory in synchronous code."
-
-        if factory is not None:
-            component_scope = self._get_component_scope(factory)
-            component_scope.update(
+            context.components.update(
                 {type_: component for type_ in factory.resolved_types}
             )
 
         return cast(T, component)
 
     async def get_component_async(self, type_: Type[T]) -> T:
-        factory, component_or_awaitable = self._build_component(type_)
+        components = self._context.components
+        try:
+            return components[type_]
+        except KeyError:
+            pass
 
-        if inspect.isawaitable(component_or_awaitable):
-            component = await cast(Awaitable[T], component_or_awaitable)
-        else:
-            component = cast(T, component_or_awaitable)
+        factory = self._context.factories[type_]
+        assert factory.factory is not None
 
-        if factory is not None:
-            component_scope = self._get_component_scope(factory)
-            component_scope.update(
+        with self._get_factory_context(factory) as context:
+            component_or_awaitable = factory.factory()
+
+            if inspect.isawaitable(component_or_awaitable):
+                component = await cast(Awaitable[T], component_or_awaitable)
+            else:
+                component = cast(T, component_or_awaitable)
+
+            context.components.update(
                 {type_: component for type_ in factory.resolved_types}
             )
 
         return component
 
     def scope(self) -> Context:
-        return Context(self._factories, self._components)
+        return Context(self._context)
 
     def inject(self, f: Callable[..., T]) -> Callable[..., T]:
         sig = inspect.signature(f)
@@ -233,7 +252,7 @@ class Injector:
         def bind_arguments(
             args: Iterable[Any], kwargs: Dict[str, Any]
         ) -> Tuple[inspect.BoundArguments, Dict[str, Any]]:
-            factories = self._factories.get()
+            factories = self._context.factories
             bound = sig.bind_partial(*args, **kwargs)
             components = {}
 
