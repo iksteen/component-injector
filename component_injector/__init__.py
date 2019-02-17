@@ -146,7 +146,7 @@ class Injector:
             factory = Factory(factory_function, {type})
         factories[type_] = factory
 
-        if bases:
+        if bases and hasattr(type_, "__mro__"):
             types = type_.mro()
             for type_ in types:
                 apply = overwrite_bases or type_ not in factories
