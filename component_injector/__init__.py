@@ -128,6 +128,18 @@ class Injector:
     def __init__(self) -> None:
         self._context = Context()
 
+    def _resolve_type(
+        self, f: Callable[..., Any], type_name: str
+    ) -> Optional[Type[Any]]:
+        return cast(
+            Optional[Type[Any]],
+            functools.reduce(
+                lambda o, p: getattr(o, p, None),  # type: ignore
+                type_name.split("."),
+                inspect.getmodule(f),
+            ),
+        )
+
     def _register_type_factory(
         self,
         type_: Type[T],
@@ -192,6 +204,14 @@ class Injector:
             type_ = cast(Type[Any], factory)
         else:
             type_ = inspect.signature(factory).return_annotation
+
+            if isinstance(type_, str):
+                resolved_type = self._resolve_type(factory, type_)
+                assert (
+                    resolved_type is not None
+                ), f"Return type {factory.__module__}.{type_} is not defined."
+                type_ = resolved_type
+
             assert (
                 type_ is not inspect.Signature.empty
             ), "Please add a return type annotation to your factory function."
@@ -327,11 +347,30 @@ class Injector:
         :return: The decorated function.
         """
 
+        def replace_param(
+            sig: inspect.Signature, param: inspect.Parameter, type_: Type[Any]
+        ) -> inspect.Signature:
+            new_param = param.replace(annotation=type_)
+            return sig.replace(
+                parameters=[
+                    new_param if p is param else p for p in sig.parameters.values()
+                ]
+            )
+
         sig = inspect.signature(f)
+
+        for name, param in sig.parameters.items():
+            if isinstance(param.annotation, str):
+                type_ = self._resolve_type(f, param.annotation)
+                if type_ is None:
+                    continue
+                sig = replace_param(sig, param, type_)
 
         def bind_arguments(
             args: Iterable[Any], kwargs: Dict[str, Any]
         ) -> Tuple[inspect.BoundArguments, Dict[str, Any]]:
+            nonlocal sig
+
             factories = self._context.factories
             bound = sig.bind_partial(*args, **kwargs)
             components = {}
@@ -343,8 +382,16 @@ class Injector:
                 ):
                     continue
 
-                if param.annotation in factories:
-                    components[name] = param.annotation
+                if isinstance(param.annotation, str):
+                    type_ = self._resolve_type(f, param.annotation)
+                    if type_ is None:
+                        continue
+                    sig = replace_param(sig, param, type_)
+                else:
+                    type_ = param.annotation
+
+                if type_ in factories:
+                    components[name] = type_
 
             return bound, components
 
