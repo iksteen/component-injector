@@ -174,6 +174,7 @@ class Injector:
     def register_factory(
         self,
         factory: Callable[[], Any],
+        type_: Optional[Type[Any]] = None,
         *,
         bases: bool = True,
         overwrite_bases: bool = True,
@@ -188,6 +189,9 @@ class Injector:
             arguments and should return the instantiated component. If
             the factory returns an Awaitable it can only used to inject
             into coroutine functions.
+        :param type_: The component type to register the factory for.
+            Defaults to the type specified by the factory's return
+            annotation.
         :param bases: Besides registering the exact component type,
             also register for all of the component's base classes.
             Defaults to `True`.
@@ -200,21 +204,22 @@ class Injector:
             Defaults to `False`.
         """
 
-        if inspect.isclass(factory):
-            type_ = cast(Type[Any], factory)
-        else:
-            type_ = inspect.signature(factory).return_annotation
+        if type_ is None:
+            if inspect.isclass(factory):
+                type_ = cast(Type[Any], factory)
+            else:
+                type_ = inspect.signature(factory).return_annotation
 
-            if isinstance(type_, str):
-                resolved_type = self._resolve_type(factory, type_)
+                if isinstance(type_, str):
+                    resolved_type = self._resolve_type(factory, type_)
+                    assert (
+                        resolved_type is not None
+                    ), f"Return type {factory.__module__}.{type_} is not defined."
+                    type_ = resolved_type
+
                 assert (
-                    resolved_type is not None
-                ), f"Return type {factory.__module__}.{type_} is not defined."
-                type_ = resolved_type
-
-            assert (
-                type_ is not inspect.Signature.empty
-            ), "Please add a return type annotation to your factory function."
+                    type_ is not inspect.Signature.empty
+                ), "Please add a return type annotation to your factory function."
 
         self._register_type_factory(
             type_,
@@ -231,12 +236,19 @@ class Injector:
             return self._context.current
 
     def register(
-        self, component: Any, *, bases: bool = True, overwrite_bases: bool = True
+        self,
+        component: Any,
+        type_: Optional[Type[Any]] = None,
+        *,
+        bases: bool = True,
+        overwrite_bases: bool = True,
     ) -> None:
         """
         Register a new component with the injector.
 
         :param component: The component to register with the injector.
+        :param type_: The component type to register the component as.
+            Defaults to the type of the component.
         :param bases: Besides registering the exact component type,
             also register for all of the component's base classes.
             Defaults to `True`.
@@ -245,8 +257,11 @@ class Injector:
             registrations. Defaults to `True`.
         """
 
+        if type_ is None:
+            type_ = type(component)
+
         factory = self._register_type_factory(
-            type(component), None, bases=bases, overwrite_bases=overwrite_bases
+            type_, None, bases=bases, overwrite_bases=overwrite_bases
         )
 
         with self._get_factory_context(factory) as context:

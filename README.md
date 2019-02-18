@@ -75,6 +75,7 @@ poetry run pre-commit install
 ## Release History
 
 * Next version
+    * Support overriding the component type.
     * Support for forward declaration annotations.
     * Support types that don't have an MRO (like the result from
       `typing.NewType`).
