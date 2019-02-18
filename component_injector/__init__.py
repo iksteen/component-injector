@@ -141,9 +141,9 @@ class Injector:
         components: ComponentStack = self._context.components
 
         if persistent:
-            factory = Factory(factory_function, {type}, self._context.current)
+            factory = Factory(factory_function, {type_}, self._context.current)
         else:
-            factory = Factory(factory_function, {type})
+            factory = Factory(factory_function, {type_})
         factories[type_] = factory
 
         if bases:
