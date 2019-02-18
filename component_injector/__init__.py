@@ -357,7 +357,6 @@ class Injector:
                     for name, type_ in bind_components.items()
                 }
             )
-            bound.apply_defaults()
             return f(*bound.args, **bound.kwargs)
 
         @functools.wraps(f)
@@ -369,7 +368,6 @@ class Injector:
                     for name, type_ in bind_components.items()
                 }
             )
-            bound.apply_defaults()
             return await cast(Awaitable[T], f(*bound.args, **bound.kwargs))
 
         if inspect.iscoroutinefunction(f):
