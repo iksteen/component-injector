@@ -12,7 +12,7 @@ A small demonstration::
    # Define a component to inject.
    class MyFirstComponent:
       def __init__(self):
-         print("Initializing MyFirstComponent."
+         print("Initializing MyFirstComponent.")
 
    # Create an injector namespace.
    injector = Injector()
