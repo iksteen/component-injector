@@ -75,6 +75,8 @@ poetry run pre-commit install
 ## Release History
 
 * Next version
+    * A component or factory will no longer be registered for its
+      `object` base type.
     * Support overriding the component type.
     * Support for forward declaration annotations.
     * Support types that don't have an MRO (like the result from

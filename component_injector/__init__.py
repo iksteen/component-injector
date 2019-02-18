@@ -161,6 +161,8 @@ class Injector:
         if bases and hasattr(type_, "__mro__"):
             types = type_.mro()
             for type_ in types:
+                if type_ is object:
+                    continue
                 apply = overwrite_bases or type_ not in factories
                 if inspect.isclass(type_) and apply:
                     factory.resolved_types.add(type_)
