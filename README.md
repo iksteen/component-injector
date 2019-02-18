@@ -74,6 +74,9 @@ poetry run pre-commit install
 
 ## Release History
 
+* Next version
+    * Fix typo in documentation (thanks @trbs!).
+
 * 1.1.0
     * Add documentation.
     * Add support for component factories. Asynchronous factories are
