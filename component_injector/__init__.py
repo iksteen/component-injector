@@ -68,28 +68,22 @@ class ComponentStack:
         self.layer.update(values)
 
 
-@dataclass
-class ContextData:
-    factories: FactoryMap
-    components: ComponentStack
-
-    def stack(self) -> "ContextData":
-        return ContextData(self.factories.copy(), self.components.stack())
-
-
 class Context:
-    __slots__ = ["_current_context", "_data", "_tokens"]
+    __slots__ = ["_current_context", "_factories", "_components", "_tokens"]
 
-    _data: ContextData
+    _factories: FactoryMap
+    _components: ComponentStack
     _tokens: List[Any]
 
     def __init__(self, other: Optional["Context"] = None) -> None:
         if other is None:
             self._current_context = contextvars.ContextVar("Context", default=self)
-            self._data = ContextData({}, ComponentStack())
+            self._factories = {}
+            self._components = ComponentStack()
         else:
             self._current_context = other._current_context
-            self._data = self.current._data.stack()
+            self._factories = other._factories.copy()
+            self._components = other._components.stack()
         self._tokens = []
 
     def __enter__(self) -> "Context":
@@ -110,11 +104,11 @@ class Context:
 
     @property
     def components(self) -> ComponentStack:
-        return self.current._data.components
+        return self.current._components
 
     @property
     def factories(self) -> FactoryMap:
-        return self.current._data.factories
+        return self.current._factories
 
 
 class Injector:
