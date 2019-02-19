@@ -1,7 +1,6 @@
 import contextvars
 import functools
 import inspect
-from dataclasses import dataclass
 from types import TracebackType
 from typing import (
     Any,
@@ -16,6 +15,7 @@ from typing import (
     Iterable,
     Awaitable,
     Tuple,
+    NamedTuple,
 )
 
 __all__ = ["Injector"]
@@ -25,8 +25,7 @@ T = TypeVar("T")
 ComponentMap = Dict[Type[T], T]
 
 
-@dataclass
-class Factory:
+class Factory(NamedTuple):
     factory: Optional[Callable[[], Any]]
     resolved_types: Set[Type]
     context: Optional["Context"] = None
