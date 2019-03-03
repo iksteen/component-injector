@@ -337,6 +337,14 @@ python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 version = "16.4.0"
 
 [[package]]
+category = "main"
+description = "Module for decorators, wrappers and monkey patching."
+name = "wrapt"
+optional = false
+python-versions = "*"
+version = "1.11.1"
+
+[[package]]
 category = "dev"
 description = "Pathlib-compatible object wrapper for zip files"
 name = "zipp"
@@ -345,7 +353,7 @@ python-versions = ">=2.7"
 version = "0.3.3"
 
 [metadata]
-content-hash = "2e75c34f50f55f7eb1521ed9e1de2d99de41326b39a502234008da4e7f916b80"
+content-hash = "b4d9ca1aa738d0a78c1f037d7da7fdd225d31bfe15224bd2b99a092db4a87e8e"
 python-versions = "^3.6"
 
 [metadata.hashes]
@@ -383,4 +391,5 @@ sphinxcontrib-websupport = ["68ca7ff70785cbe1e7bccc71a48b5b6d965d79ca50629606c78
 toml = ["229f81c57791a41d65e399fc06bf0848bab550a9dfd5ed66df18ce5f05e73d5c", "235682dd292d5899d361a811df37e04a8828a5b1da3115886b73cf81ebc9100e", "f1db651f9657708513243e61e6cc67d101a39bad662eaa9b5546f789338e07a3"]
 urllib3 = ["61bf29cada3fc2fbefad4fdf059ea4bd1b4a86d2b6d15e1c7c0b582b9752fe39", "de9529817c93f27c8ccbfead6985011db27bd0ddfcdb2d86f3f663385c6a9c22"]
 virtualenv = ["8b9abfc51c38b70f61634bf265e5beacf6fae11fc25d355d1871f49b8e45f0db", "cceab52aa7d4df1e1871a70236eb2b89fcfe29b6b43510d9738689787c513261"]
+wrapt = ["4aea003270831cceb8a90ff27c4031da6ead7ec1886023b80ce0dfe0adf61533"]
 zipp = ["55ca87266c38af6658b84db8cfb7343cdb0bf275f93c7afaea0d8e7a209c7478", "682b3e1c62b7026afe24eadf6be579fb45fec54c07ea218bded8092af07a68c4"]

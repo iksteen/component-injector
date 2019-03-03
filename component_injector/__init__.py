@@ -18,6 +18,9 @@ from typing import (
     NamedTuple,
 )
 
+import wrapt
+
+
 __all__ = ["Injector"]
 
 
@@ -405,8 +408,13 @@ class Injector:
 
             return bound, components
 
-        @functools.wraps(f)
-        def wrapper(*args: Any, **kwargs: Any) -> T:
+        @wrapt.decorator  # type: ignore
+        def wrapper(
+            wrapped: Callable[..., T],
+            instance: Any,
+            args: Iterable[Any],
+            kwargs: Dict[str, Any],
+        ) -> T:
             bound, bind_components = bind_arguments(args, kwargs)
             bound.arguments.update(
                 {
@@ -414,10 +422,15 @@ class Injector:
                     for name, type_ in bind_components.items()
                 }
             )
-            return f(*bound.args, **bound.kwargs)
+            return wrapped(*bound.args, **bound.kwargs)
 
-        @functools.wraps(f)
-        async def async_wrapper(*args: Any, **kwargs: Any) -> T:
+        @wrapt.decorator  # type: ignore
+        async def async_wrapper(
+            wrapped: Callable[..., T],
+            instance: Any,
+            args: Iterable[Any],
+            kwargs: Dict[str, Any],
+        ) -> T:
             bound, bind_components = bind_arguments(args, kwargs)
             bound.arguments.update(
                 {
@@ -425,9 +438,9 @@ class Injector:
                     for name, type_ in bind_components.items()
                 }
             )
-            return await cast(Awaitable[T], f(*bound.args, **bound.kwargs))
+            return await cast(Awaitable[T], wrapped(*bound.args, **bound.kwargs))
 
         if inspect.iscoroutinefunction(f):
-            return async_wrapper
+            return cast(Callable[..., T], async_wrapper(f))
         else:
-            return wrapper
+            return cast(Callable[..., T], wrapper(f))
