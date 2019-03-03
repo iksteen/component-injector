@@ -81,8 +81,8 @@ class Context:
             self._components = ComponentStack()
         else:
             self._current_context = other._current_context
-            self._factories = other._factories.copy()
-            self._components = other._components.stack()
+            self._factories = other.factories.copy()
+            self._components = other.components.stack()
         self._tokens = []
 
     def __enter__(self) -> "Context":
