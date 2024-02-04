@@ -1,37 +1,36 @@
+from __future__ import annotations
+
 import contextvars
+
 import functools
 import inspect
 from types import TracebackType
 from typing import (
     Any,
+    Awaitable,
     Callable,
-    Dict,
+    Iterable,
+    NamedTuple,
     Optional,
     Type,
     TypeVar,
     cast,
-    Set,
-    List,
-    Iterable,
-    Awaitable,
-    Tuple,
-    NamedTuple,
 )
 
 __all__ = ["Injector"]
 
 
 T = TypeVar("T")
-ComponentMap = Dict[Type[T], T]
+ComponentMap = dict[Type[T], T]
 
 
 class Factory(NamedTuple):
     factory: Optional[Callable[[], Any]]
-    resolved_types: Set[Type]
+    resolved_types: set[Type]
     context: Optional["Context"] = None
 
 
-FactoryMap = Dict[Type[T], Factory]
+FactoryMap = dict[Type[T], Factory]
 
 UNSET = object()
 
@@ -39,7 +38,7 @@ UNSET = object()
 class ComponentStack:
     __slots__ = ["_layers", "layer"]
 
-    def __init__(self, layers: Optional[List[ComponentMap]] = None) -> None:
+    def __init__(self, layers: Optional[list[ComponentMap]] = None) -> None:
         if layers is None:
             layers = [{}]
         self._layers = layers
@@ -72,7 +71,7 @@ class Context:
 
     _factories: FactoryMap
     _components: ComponentStack
-    _tokens: List[Any]
+    _tokens: list[Any]
 
     def __init__(self, other: Optional["Context"] = None) -> None:
         if other is None:
@@ -127,7 +126,7 @@ class Injector:
         return cast(
             Optional[Type[Any]],
             functools.reduce(
-                lambda o, p: getattr(o, p, None),  # type: ignore
+                lambda o, p: getattr(o, p, None),
                 type_name.split("."),
                 inspect.getmodule(f),
             ),
@@ -201,7 +200,7 @@ class Injector:
 
         if type_ is None:
             if inspect.isclass(factory):
-                type_ = cast(Type[Any], factory)
+                type_ = factory
             else:
                 type_ = inspect.signature(factory).return_annotation
 
@@ -345,7 +344,9 @@ class Injector:
 
         return Context(self._context)
 
-    def inject(self, f: Callable[..., T]) -> Callable[..., T]:
+    def inject(
+        self, f: Callable[..., T]
+    ) -> Callable[..., T] | Callable[..., Awaitable[T]]:
         """
         This decorator will connect the injector to a function or
         method. When the resulting function is called, the provided
@@ -377,8 +378,8 @@ class Injector:
                 sig = replace_param(sig, param, type_)
 
         def bind_arguments(
-            args: Iterable[Any], kwargs: Dict[str, Any]
-        ) -> Tuple[inspect.BoundArguments, Dict[str, Any]]:
+            args: Iterable[Any], kwargs: dict[str, Any]
+        ) -> tuple[inspect.BoundArguments, dict[str, Any]]:
             nonlocal sig
 
             factories = self._context.factories
