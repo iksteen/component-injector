@@ -17,11 +17,7 @@ will return to the state it was in before entering the scope.
 
 ## Compatibility
 
-`component-injector` is compatible with python 3.6+ using the
-backported `contextvars` and `dataclasses` packages.
-
-The scopes are thread-safe and when using python 3.7 also safe for for
-use with asyncio tasks.
+`component-injector` is compatible with python 3.9 and up.
 
 ## Installation
 
